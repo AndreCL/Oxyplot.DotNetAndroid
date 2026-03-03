@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">OxyPlot Android Sample</string>
+    <string name="app_text">Showcase of OxyPlot charts on Android</string>
+</resources>

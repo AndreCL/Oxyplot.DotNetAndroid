@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>OxyPlot.DotNetAndroid</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>OxyPlot</Authors>
+    <Description>OxyPlot for .NET Android using SkiaSharp</Description>
+    <PackageProjectUrl>https://github.com/AndreCL/Oxyplot.DotNetAndroid</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>oxyplot;android;dotnet;charts;plotting;skia</PackageTags>
+    <RepositoryUrl>https://github.com/AndreCL/Oxyplot.DotNetAndroid</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OxyPlot.Core" Version="2.1.2" />
+    <PackageReference Include="OxyPlot.SkiaSharp" Version="2.1.2" />
+    <PackageReference Include="SkiaSharp" Version="2.88.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
