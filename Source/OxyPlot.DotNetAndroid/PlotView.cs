@@ -2,781 +2,752 @@ using Android.Content;
 using Android.Graphics;
 using Android.Util;
 using Android.Views;
-using Android.Widget;
-using OxyPlot.SkiaSharp;
-using OxyPlot.Series;
-using SkiaSharp;
-using System.Linq;
 
-namespace OxyPlot.DotNetAndroid
+namespace OxyPlot.DotNetAndroid;
+
+/// <summary>
+/// An Android View that renders OxyPlot charts using SkiaSharp
+/// </summary>
+public class PlotView : View, IPlotView
 {
+    private readonly PlotCore _plotCore;
+    private readonly TouchHandler _touchHandler;
+    private readonly TrackerView? _trackerView;
+    internal float _dpiScale = 1.0f;
+    private readonly object _renderingLock = new object();
+    private readonly object _invalidateLock = new object();
+    private bool _isModelInvalidated = true;
+    private bool _updateDataFlag = true;
+
+    #region Constructors
+
     /// <summary>
-    /// An Android View that renders OxyPlot charts using SkiaSharp
+    /// Initializes a new instance of the <see cref="PlotView"/> class.
     /// </summary>
-    public class PlotView : FrameLayout, IPlotView
+    /// <param name="context">The context.</param>
+    public PlotView(Context context) : base(context)
     {
-        private readonly SkiaCanvasView _canvasView;
-        private readonly PlotCore _plotCore;
-        private readonly TouchHandler _touchHandler;
-        private readonly TrackerView _trackerView;
-        private float _dpiScale = 1.0f;
-
-        #region Constructors
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        public PlotView(Context context) : base(context)
-        {
-            Initialize(context);
-            _canvasView = new SkiaCanvasView(context);
-            _plotCore = new PlotCore();
-            _touchHandler = new TouchHandler(this);
-            _trackerView = new TrackerView(context);
-            SetupView();
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attributes.</param>
-        public PlotView(Context context, IAttributeSet attrs) : base(context, attrs)
-        {
-            Initialize(context);
-            _canvasView = new SkiaCanvasView(context, attrs);
-            _plotCore = new PlotCore();
-            _touchHandler = new TouchHandler(this);
-            _trackerView = new TrackerView(context);
-            SetupView();
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attributes.</param>
-        /// <param name="defStyleAttr">The default style attribute.</param>
-        public PlotView(Context context, IAttributeSet attrs, int defStyleAttr) : base(context, attrs, defStyleAttr)
-        {
-            Initialize(context);
-            _canvasView = new SkiaCanvasView(context, attrs, defStyleAttr);
-            _plotCore = new PlotCore();
-            _touchHandler = new TouchHandler(this);
-            _trackerView = new TrackerView(context);
-            SetupView();
-        }
-
-        #endregion
-
-        #region Properties
-
-        /// <summary>
-        /// Gets or sets the plot model.
-        /// </summary>
-        public PlotModel? Model
-        {
-            get => _plotCore.Model;
-            set => _plotCore.Model = value;
-        }
-
-        /// <summary>
-        /// Gets or sets the plot controller.
-        /// </summary>
-        public PlotController? Controller
-        {
-            get => _plotCore.Controller;
-            set => _plotCore.Controller = value;
-        }
-
-        /// <summary>
-        /// Gets the actual model.
-        /// </summary>
-        public PlotModel? ActualModel => _plotCore.ActualModel;
-
-        /// <summary>
-        /// Gets the actual plot controller.
-        /// </summary>
-        public PlotController? ActualController => _plotCore.ActualController;
-
-        #endregion
-
-        #region IPlotView Implementation
-
-        /// <summary>
-        /// Gets the actual model.
-        /// </summary>
-        Model? IView.ActualModel => ActualModel;
-
-        /// <summary>
-        /// Gets the actual controller.
-        /// </summary>
-        IController? IView.ActualController => ActualController;
-
-        /// <summary>
-        /// Gets the client area rectangle.
-        /// </summary>
-        /// <returns>The client area rectangle.</returns>
-        public OxyRect ClientArea => _plotCore.GetClientArea(Width, Height);
-
-        /// <summary>
-        /// Invalidates the plot (not blocking).
-        /// </summary>
-        /// <param name="updateData">if set to true, all data collections will be updated.</param>
-        public void InvalidatePlot(bool updateData = true)
-        {
-            _plotCore.InvalidatePlot(updateData);
-        }
-
-        /// <summary>
-        /// Sets the cursor type (not supported on mobile platforms).
-        /// </summary>
-        /// <param name="cursorType">The cursor type.</param>
-        public void SetCursorType(CursorType cursorType)
-        {
-            _plotCore.SetCursorType(cursorType);
-        }
-
-        /// <summary>
-        /// Sets the clipboard text (not supported on Android).
-        /// </summary>
-        /// <param name="text">The text.</param>
-        public void SetClipboardText(string text)
-        {
-            // Not implemented for Android
-        }
-
-        /// <summary>
-        /// Shows the tracker.
-        /// </summary>
-        /// <param name="trackerHitResult">The tracker data.</param>
-        public void ShowTracker(TrackerHitResult trackerHitResult)
-        {
-            if (trackerHitResult?.Text != null)
-            {
-                _trackerView.ShowTracker(
-                    trackerHitResult.Text,
-                    (float)trackerHitResult.Position.X,
-                    (float)trackerHitResult.Position.Y
-                );
-            }
-        }
-
-        /// <summary>
-        /// Hides the tracker.
-        /// </summary>
-        public void HideTracker()
-        {
-            _trackerView.HideTracker();
-        }
-
-        /// <summary>
-        /// Shows the zoom rectangle.
-        /// </summary>
-        /// <param name="rectangle">The rectangle.</param>
-        public void ShowZoomRectangle(OxyRect rectangle)
-        {
-            // Not implemented for touch devices
-        }
-
-        /// <summary>
-        /// Hides the zoom rectangle.
-        /// </summary>
-        public void HideZoomRectangle()
-        {
-            // Not implemented for touch devices
-        }
-
-        #endregion
-
-        #region Private Methods
-
-        /// <summary>
-        /// Initializes the view.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        private void Initialize(Context context)
-        {
-            _dpiScale = context.Resources?.DisplayMetrics?.Density ?? 1.0f;
-        }
-
-        /// <summary>
-        /// Sets up the view hierarchy.
-        /// </summary>
-        private void SetupView()
-        {
-            // Add the canvas view
-            AddView(_canvasView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MatchParent,
-                ViewGroup.LayoutParams.MatchParent
-            ));
-
-            // Add the tracker view
-            AddView(_trackerView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WrapContent,
-                ViewGroup.LayoutParams.WrapContent
-            ));
-
-            // Wire up events
-            _canvasView.PaintCanvas += OnPaintCanvas;
-            _plotCore.PlotInvalidated += OnPlotInvalidated;
-
-            // Enable touch events
-            _canvasView.Touch += OnTouch;
-        }
-
-        /// <summary>
-        /// Handles the paint canvas event.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The paint canvas event args.</param>
-        private void OnPaintCanvas(object? sender, PaintCanvasEventArgs e)
-        {
-            _plotCore.RenderToCanvas(e.Canvas, e.Width, e.Height, _dpiScale);
-        }
-
-        /// <summary>
-        /// Handles the plot invalidated event.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The event arguments.</param>
-        private void OnPlotInvalidated(object? sender, EventArgs e)
-        {
-            Post(() => _canvasView.Invalidate());
-        }
-
-        /// <summary>
-        /// Handles touch events.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The touch event arguments.</param>
-        private void OnTouch(object? sender, View.TouchEventArgs e)
-        {
-            if (e.Event != null)
-            {
-                _touchHandler.HandleTouchEvent(e.Event);
-                e.Handled = true;
-            }
-        }
-
-        #endregion
+        Initialize(context);
+        _plotCore = new PlotCore();
+        _touchHandler = new TouchHandler(this);
     }
 
     /// <summary>
-    /// Event arguments for canvas painting
+    /// Initializes a new instance of the <see cref="PlotView"/> class.
     /// </summary>
-    public class PaintCanvasEventArgs : EventArgs
+    /// <param name="context">The context.</param>
+    /// <param name="attrs">The attributes.</param>
+    public PlotView(Context context, IAttributeSet attrs) : base(context, attrs)
     {
-        /// <summary>
-        /// Gets the canvas.
-        /// </summary>
-        public SKCanvas Canvas { get; }
+        Initialize(context);
+        _plotCore = new PlotCore();
+        _touchHandler = new TouchHandler(this);
+    }
 
-        /// <summary>
-        /// Gets the width.
-        /// </summary>
-        public int Width { get; }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PlotView"/> class.
+    /// </summary>
+    /// <param name="context">The context.</param>
+    /// <param name="attrs">The attributes.</param>
+    /// <param name="defStyleAttr">The default style attribute.</param>
+    public PlotView(Context context, IAttributeSet attrs, int defStyleAttr) : base(context, attrs, defStyleAttr)
+    {
+        Initialize(context);
+        _plotCore = new PlotCore();
+        _touchHandler = new TouchHandler(this);
+    }
 
-        /// <summary>
-        /// Gets the height.
-        /// </summary>
-        public int Height { get; }
+    #endregion
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PaintCanvasEventArgs"/> class.
-        /// </summary>
-        /// <param name="canvas">The canvas.</param>
-        /// <param name="width">The width.</param>
-        /// <param name="height">The height.</param>
-        public PaintCanvasEventArgs(SKCanvas canvas, int width, int height)
+    #region Properties
+
+    /// <summary>
+    /// Gets or sets the plot model.
+    /// </summary>
+    public PlotModel? Model
+    {
+        get => _plotCore.Model;
+        set
         {
-            Canvas = canvas;
-            Width = width;
-            Height = height;
+            if (_plotCore.Model != value)
+            {
+                if (_plotCore.Model != null)
+                {
+                    ((IPlotModel)_plotCore.Model).AttachPlotView(null);
+                }
+
+                _plotCore.Model = value;
+
+                if (value != null)
+                {
+                    ((IPlotModel)value).AttachPlotView(this);
+                }
+
+                InvalidatePlot();
+            }
         }
     }
 
     /// <summary>
-    /// A custom Android view that hosts a SkiaSharp canvas
+    /// Gets or sets the plot controller.
     /// </summary>
-    internal class SkiaCanvasView : View
+    public PlotController? Controller
     {
-        /// <summary>
-        /// Event raised when the canvas needs to be painted.
-        /// </summary>
-        public event EventHandler<PaintCanvasEventArgs>? PaintCanvas;
+        get => _plotCore.Controller;
+        set => _plotCore.Controller = value;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SkiaCanvasView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        public SkiaCanvasView(Context context) : base(context)
+    /// <summary>
+    /// Gets the actual model.
+    /// </summary>
+    public PlotModel? ActualModel => _plotCore.ActualModel;
+
+    /// <summary>
+    /// Gets the actual plot controller.
+    /// </summary>
+    public PlotController? ActualController => _plotCore.ActualController;
+
+    #endregion
+
+    #region IPlotView Implementation
+
+    /// <summary>
+    /// Gets the actual model.
+    /// </summary>
+    Model? IView.ActualModel => ActualModel;
+
+    /// <summary>
+    /// Gets the actual controller.
+    /// </summary>
+    IController? IView.ActualController => ActualController;
+
+    /// <summary>
+    /// Gets the client area rectangle.
+    /// </summary>
+    /// <returns>The client area rectangle.</returns>
+    public OxyRect ClientArea => _plotCore.GetClientArea(Width, Height);
+
+    /// <summary>
+    /// Invalidates the plot (not blocking).
+    /// </summary>
+    /// <param name="updateData">if set to true, all data collections will be updated.</param>
+    public void InvalidatePlot(bool updateData = true)
+    {
+        lock (_invalidateLock)
         {
+            _isModelInvalidated = true;
+            _updateDataFlag = _updateDataFlag || updateData;
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SkiaCanvasView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attributes.</param>
-        public SkiaCanvasView(Context context, IAttributeSet attrs) : base(context, attrs)
+        Invalidate();
+    }
+
+    /// <summary>
+    /// Sets the cursor type (not supported on mobile platforms).
+    /// </summary>
+    /// <param name="cursorType">The cursor type.</param>
+    public void SetCursorType(CursorType cursorType)
+    {
+        _plotCore.SetCursorType(cursorType);
+    }
+
+    /// <summary>
+    /// Sets the clipboard text (not supported on Android).
+    /// </summary>
+    /// <param name="text">The text.</param>
+    public void SetClipboardText(string text)
+    {
+        // Not implemented for Android
+    }
+
+    /// <summary>
+    /// Shows the tracker.
+    /// </summary>
+    /// <param name="trackerHitResult">The tracker data.</param>
+    public void ShowTracker(TrackerHitResult trackerHitResult)
+    {
+        // Tracker functionality can be implemented later if needed
+    }
+
+    /// <summary>
+    /// Hides the tracker.
+    /// </summary>
+    public void HideTracker()
+    {
+        // Tracker functionality can be implemented later if needed
+    }
+
+    /// <summary>
+    /// Shows the zoom rectangle.
+    /// </summary>
+    /// <param name="rectangle">The rectangle.</param>
+    public void ShowZoomRectangle(OxyRect rectangle)
+    {
+        // Not implemented for touch devices
+    }
+
+    /// <summary>
+    /// Hides the zoom rectangle.
+    /// </summary>
+    public void HideZoomRectangle()
+    {
+        // Not implemented for touch devices
+    }
+
+    #endregion
+
+    #region Private Methods and Overrides
+
+    /// <summary>
+    /// Initializes the view.
+    /// </summary>
+    /// <param name="context">The context.</param>
+    private void Initialize(Context context)
+    {
+        _dpiScale = context.Resources?.DisplayMetrics?.Density ?? 1.0f;
+    }
+
+    /// <summary>
+    /// Handles touch screen motion events.
+    /// </summary>
+    /// <param name="e">The motion event arguments.</param>
+    /// <returns><c>true</c> if the event was handled.</returns>
+    public override bool OnTouchEvent(MotionEvent? e)
+    {
+        if (e == null) return base.OnTouchEvent(e);
+
+        var handled = base.OnTouchEvent(e);
+        if (!handled)
         {
+            _touchHandler.HandleTouchEvent(e);
+            handled = true;
+        }
+        return handled;
+    }
+
+    /// <summary>
+    /// Handles key down events.
+    /// </summary>
+    /// <param name="keyCode">The key code.</param>
+    /// <param name="e">The event arguments.</param>
+    /// <returns><c>true</c> if the event was handled.</returns>
+    public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
+    {
+        var handled = base.OnKeyDown(keyCode, e);
+        if (!handled && e != null)
+        {
+            handled = ActualController?.HandleKeyDown(this, e.ToKeyEventArgs()) ?? false;
+        }
+        return handled;
+    }
+
+    /// <summary>
+    /// Draws the content of the control.
+    /// </summary>
+    /// <param name="canvas">The canvas to draw on.</param>
+    protected override void OnDraw(Canvas? canvas)
+    {
+        base.OnDraw(canvas);
+
+        var actualModel = ActualModel;
+        if (actualModel == null || canvas == null)
+            return;
+
+        if (actualModel.Background.IsVisible())
+        {
+            canvas.DrawColor(actualModel.Background.ToColor());
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SkiaCanvasView"/> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attributes.</param>
-        /// <param name="defStyleAttr">The default style attribute.</param>
-        public SkiaCanvasView(Context context, IAttributeSet attrs, int defStyleAttr) : base(context, attrs, defStyleAttr)
+        lock (_invalidateLock)
         {
+            if (_isModelInvalidated)
+            {
+                ((IPlotModel)actualModel).Update(_updateDataFlag);
+                _updateDataFlag = false;
+                _isModelInvalidated = false;
+            }
         }
 
-        /// <summary>
-        /// Called when the view should render its content.
-        /// </summary>
-        /// <param name="canvas">The canvas on which the background will be drawn.</param>
-        protected override void OnDraw(Canvas? canvas)
+        lock (_renderingLock)
         {
-            base.OnDraw(canvas);
+            _plotCore.RenderToCanvas(canvas, Width, Height, _dpiScale);
+        }
+    }
 
-            if (canvas == null || Width == 0 || Height == 0)
-                return;
+    #endregion
+}
 
-            // Create bitmap for SkiaSharp
-            using var bitmap = new SKBitmap(Width, Height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            using var skCanvas = new SKCanvas(bitmap);
+/// <summary>
+/// Core plotting functionality for .NET Android
+/// </summary>
+internal class PlotCore
+{
+    private PlotModel? _model;
+    private PlotController? _controller;
 
-            // Raise the paint canvas event
-            PaintCanvas?.Invoke(this, new PaintCanvasEventArgs(skCanvas, Width, Height));
+    /// <summary>
+    /// Gets or sets the plot model.
+    /// </summary>
+    public PlotModel? Model
+    {
+        get => _model;
+        set
+        {
+            if (_model != value)
+            {
+                if (_model != null)
+                {
+                    _model.Updated -= OnModelUpdated;
+                }
 
-            // Convert to Android bitmap and draw
-            using var androidBitmap = bitmap.ToAndroidBitmap();
-            canvas.DrawBitmap(androidBitmap, 0, 0, null);
+                _model = value;
+
+                if (_model != null)
+                {
+                    _model.Updated += OnModelUpdated;
+                }
+            }
         }
     }
 
     /// <summary>
-    /// Extension methods for SkiaSharp integration with Android
+    /// Gets or sets the plot controller.
     /// </summary>
-    internal static class SkiaSharpExtensions
+    public PlotController? Controller
     {
-        /// <summary>
-        /// Converts a SkiaSharp bitmap to an Android bitmap.
-        /// </summary>
-        /// <param name="skBitmap">The SkiaSharp bitmap.</param>
-        /// <returns>The Android bitmap.</returns>
-        public static Bitmap ToAndroidBitmap(this SKBitmap skBitmap)
-        {
-            var androidBitmap = Bitmap.CreateBitmap(skBitmap.Width, skBitmap.Height, Bitmap.Config.Argb8888!)!;
-            
-            // Get pixel data from SKBitmap
-            var pixels = skBitmap.Pixels;
-            var colors = new int[pixels.Length];
-            
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                var color = pixels[i];
-                colors[i] = Color.Argb(color.Alpha, color.Red, color.Green, color.Blue);
-            }
-            
-            androidBitmap.SetPixels(colors, 0, skBitmap.Width, 0, 0, skBitmap.Width, skBitmap.Height);
-            return androidBitmap;
-        }
-
-        /// <summary>
-        /// Converts an OxyColor to a SkiaSharp SKColor.
-        /// </summary>
-        /// <param name="oxyColor">The OxyColor to convert.</param>
-        /// <returns>The equivalent SKColor.</returns>
-        public static SKColor ToSKColor(this OxyColor oxyColor)
-        {
-            return new SKColor(oxyColor.R, oxyColor.G, oxyColor.B, oxyColor.A);
-        }
+        get => _controller ??= new PlotController();
+        set => _controller = value;
     }
 
     /// <summary>
-    /// Core plotting functionality using SkiaSharp that can be used in .NET Android
+    /// Gets the actual model.
     /// </summary>
-    internal class PlotCore
+    public PlotModel? ActualModel => Model;
+
+    /// <summary>
+    /// Gets the actual plot controller.
+    /// </summary>
+    public PlotController? ActualController => Controller;
+
+    /// <summary>
+    /// Sets the cursor type (not supported on mobile platforms).
+    /// </summary>
+    /// <param name="cursorType">The cursor type.</param>
+    public void SetCursorType(CursorType cursorType)
     {
-        private PlotModel? _model;
-        private PlotController? _controller;
-        private SkiaRenderContext? _renderContext;
-        private bool _isModelInvalidated = true;
+        // Not supported on Android
+    }
 
-        /// <summary>
-        /// Event raised when the plot needs to be invalidated
-        /// </summary>
-        public event EventHandler? PlotInvalidated;
+    /// <summary>
+    /// Renders the plot to the specified Android canvas.
+    /// </summary>
+    /// <param name="canvas">The Android canvas to render to.</param>
+    /// <param name="width">The width of the canvas.</param>
+    /// <param name="height">The height of the canvas.</param>
+    /// <param name="dpiScale">The DPI scale factor.</param>
+    public void RenderToCanvas(Canvas canvas, int width, int height, float dpiScale)
+    {
+        if (canvas == null || Model == null || width == 0 || height == 0)
+            return;
 
-        /// <summary>
-        /// Gets or sets the plot model.
-        /// </summary>
-        public PlotModel? Model
+        try
         {
-            get => _model;
-            set
-            {
-                if (_model != value)
-                {
-                    if (_model != null)
-                    {
-                        _model.Updated -= OnModelUpdated;
-                    }
-
-                    _model = value;
-
-                    if (_model != null)
-                    {
-                        _model.Updated += OnModelUpdated;
-                    }
-
-                    InvalidatePlot();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the plot controller.
-        /// </summary>
-        public PlotController? Controller
-        {
-            get => _controller ??= new PlotController();
-            set => _controller = value;
-        }
-
-        /// <summary>
-        /// Gets the actual model.
-        /// </summary>
-        public PlotModel? ActualModel => Model;
-
-        /// <summary>
-        /// Gets the actual plot controller.
-        /// </summary>
-        public PlotController? ActualController => Controller;
-
-        /// <summary>
-        /// Invalidate the plot (not blocking)
-        /// </summary>
-        /// <param name="updateData">if set to true, all data collections will be updated.</param>
-        public void InvalidatePlot(bool updateData = true)
-        {
-            if (updateData)
-            {
-                _isModelInvalidated = true;
-            }
+            // Create render context for Android Canvas
+            var renderContext = new AndroidCanvasRenderContext(canvas, dpiScale);
             
-            PlotInvalidated?.Invoke(this, EventArgs.Empty);
+            // Use the actual canvas dimensions for OxyPlot rendering
+            var rect = new OxyRect(0, 0, width, height);
+            
+            // Set margins with much larger bottom space to prevent X-axis title overlap
+            Model.PlotMargins = new OxyThickness(180, 30, 15, 200); // left, top, right, bottom
+            
+            // Use OxyPlot's official rendering
+            ((IPlotModel)Model).Render(renderContext, rect);
         }
-
-        /// <summary>
-        /// Sets the cursor type (not supported on mobile platforms).
-        /// </summary>
-        /// <param name="cursorType">The cursor type.</param>
-        public void SetCursorType(CursorType cursorType)
+        catch (Exception ex)
         {
-            // Not supported on Android
-        }
-
-        /// <summary>
-        /// Renders the plot to the specified SkiaSharp canvas.
-        /// </summary>
-        /// <param name="canvas">The SkiaSharp canvas to render to.</param>
-        /// <param name="width">The width of the canvas.</param>
-        /// <param name="height">The height of the canvas.</param>
-        /// <param name="dpiScale">The DPI scale factor.</param>
-        public void RenderToCanvas(SKCanvas canvas, int width, int height, float dpiScale = 1.0f)
-        {
-            if (canvas == null || Model == null || width == 0 || height == 0)
-                return;
-
-            try
+            // Draw error message using Android Paint
+            var paint = new Paint
             {
-                canvas.Clear(SKColors.White);
-
-                if (_isModelInvalidated)
-                {
-                    Model.InvalidatePlot(true);
-                    _isModelInvalidated = false;
-                }
-
-                // Create a proper render context
-                _renderContext ??= new SkiaRenderContext();
-                _renderContext.SkCanvas = canvas;
-                _renderContext.DpiScale = dpiScale;
-
-                // Simple rendering - just draw the plot title for now to verify it's working
-                var paint = new SKPaint
-                {
-                    Color = SKColors.Black,
-                    TextSize = 20 * dpiScale,
-                    IsAntialias = true,
-                    FakeBoldText = true
-                };
-
-                // Draw the plot title
-                if (!string.IsNullOrEmpty(Model.Title))
-                {
-                    canvas.DrawText(Model.Title, width / 2f, 30 * dpiScale, paint);
-                }
-
-                // Draw series data as simple visualization
-                var seriesPaint = new SKPaint
-                {
-                    Color = SKColors.Blue,
-                    StrokeWidth = 2 * dpiScale,
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Stroke
-                };
-
-                // Draw a simple representation of the series
-                foreach (var series in Model.Series)
-                {
-                    if (series is LineSeries lineSeries)
-                    {
-                        DrawLineSeries(canvas, lineSeries, width, height, dpiScale);
-                    }
-                    else if (series is BarSeries barSeries)
-                    {
-                        DrawBarSeries(canvas, barSeries, width, height, dpiScale);
-                    }
-                    else if (series is ScatterSeries scatterSeries)
-                    {
-                        DrawScatterSeries(canvas, scatterSeries, width, height, dpiScale);
-                    }
-                    else if (series is PieSeries pieSeries)
-                    {
-                        DrawPieSeries(canvas, pieSeries, width, height, dpiScale);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Draw error message
-                var paint = new SKPaint
-                {
-                    Color = SKColors.Red,
-                    TextSize = 16 * dpiScale,
-                    IsAntialias = true
-                };
-                
-                canvas.DrawText($"Rendering error: {ex.Message}", 10, 50, paint);
-            }
-        }
-
-        private void DrawLineSeries(SKCanvas canvas, LineSeries series, int width, int height, float dpiScale)
-        {
-            if (series.Points.Count == 0) return;
-
-            var paint = new SKPaint
-            {
-                Color = series.Color.ToSKColor(),
-                StrokeWidth = (float)series.StrokeThickness * dpiScale,
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke
+                Color = Color.Red,
+                TextSize = 16 * dpiScale,
+                AntiAlias = true
             };
-
-            // Simple mapping from data coordinates to screen coordinates
-            var points = series.Points.ToList();
-            if (points.Count < 2) return;
-
-            var minX = points.Min(p => p.X);
-            var maxX = points.Max(p => p.X);
-            var minY = points.Min(p => p.Y);
-            var maxY = points.Max(p => p.Y);
-
-            var margin = 50 * dpiScale;
-            var plotWidth = width - 2 * margin;
-            var plotHeight = height - 2 * margin;
-
-            using var path = new SKPath();
-            bool first = true;
-
-            foreach (var point in points)
-            {
-                var x = margin + (float)((point.X - minX) / (maxX - minX) * plotWidth);
-                var y = margin + (float)((maxY - point.Y) / (maxY - minY) * plotHeight);
-
-                if (first)
-                {
-                    path.MoveTo(x, y);
-                    first = false;
-                }
-                else
-                {
-                    path.LineTo(x, y);
-                }
-            }
-
-            canvas.DrawPath(path, paint);
+            canvas.DrawText($"Rendering error: {ex.Message}", 10, 50, paint);
         }
+    }
 
-        private void DrawBarSeries(SKCanvas canvas, BarSeries series, int width, int height, float dpiScale)
+    /// <summary>
+    /// Called when the model is updated.
+    /// </summary>
+    /// <param name="sender">The sender.</param>
+    /// <param name="e">The event arguments.</param>
+    private void OnModelUpdated(object? sender, EventArgs e)
+    {
+        // Model update handled by PlotView
+    }
+
+    /// <summary>
+    /// Gets the client area rectangle for the given dimensions.
+    /// </summary>
+    /// <param name="width">The width.</param>
+    /// <param name="height">The height.</param>
+    /// <returns>The client area rectangle.</returns>
+    public OxyRect GetClientArea(int width, int height) => new(0, 0, width, height);
+}
+
+/// <summary>
+/// Render context for Android Canvas
+/// </summary>
+internal class AndroidCanvasRenderContext : IRenderContext
+{
+    private readonly Canvas _canvas;
+    private readonly float _dpiScale;
+    private readonly Dictionary<OxyColor, Paint> _paintCache = new();
+
+    public AndroidCanvasRenderContext(Canvas canvas, float dpiScale)
+    {
+        _canvas = canvas;
+        _dpiScale = dpiScale;
+    }
+
+    public bool RendersToScreen => true;
+    public int ClipCount { get; private set; }
+
+    public void CleanUp()
+    {
+        // Cleanup paint cache
+        foreach (var paint in _paintCache.Values)
         {
-            if (series.Items.Count == 0) return;
-
-            var margin = 50 * dpiScale;
-            var plotWidth = width - 2 * margin;
-            var plotHeight = height - 2 * margin;
-
-            var maxValue = series.Items.Max(item => item.Value);
-            var barWidth = plotWidth / series.Items.Count * 0.8f;
-            var spacing = plotWidth / series.Items.Count * 0.2f;
-
-            for (int i = 0; i < series.Items.Count; i++)
-            {
-                var item = series.Items[i];
-                var paint = new SKPaint
-                {
-                    Color = item.Color.ToSKColor(),
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill
-                };
-
-                var x = margin + i * (barWidth + spacing);
-                var barHeight = (float)(item.Value / maxValue * plotHeight);
-                var y = margin + plotHeight - barHeight;
-
-                var rect = new SKRect(x, y, x + barWidth, margin + plotHeight);
-                canvas.DrawRect(rect, paint);
-            }
+            paint.Dispose();
         }
+        _paintCache.Clear();
+    }
 
-        private void DrawScatterSeries(SKCanvas canvas, ScatterSeries scatterSeries, int width, int height, float dpiScale)
+    public void DrawEllipse(OxyRect rect, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode = EdgeRenderingMode.Automatic)
+    {
+        var paint = GetPaint(fill, stroke, thickness);
+        var rectF = new RectF((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
+        
+        if (fill.IsVisible())
         {
-            if (scatterSeries.Points.Count == 0) return;
-
-            var paint = new SKPaint
-            {
-                Color = scatterSeries.MarkerFill.ToSKColor(),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
-
-            var strokePaint = new SKPaint
-            {
-                Color = scatterSeries.MarkerStroke.ToSKColor(),
-                StrokeWidth = 1 * dpiScale,
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke
-            };
-
-            // Simple mapping from data coordinates to screen coordinates
-            var points = scatterSeries.Points.ToList();
-            if (points.Count == 0) return;
-
-            var minX = points.Min(p => p.X);
-            var maxX = points.Max(p => p.X);
-            var minY = points.Min(p => p.Y);
-            var maxY = points.Max(p => p.Y);
-
-            var margin = 50 * dpiScale;
-            var plotWidth = width - 2 * margin;
-            var plotHeight = height - 2 * margin;
-
-            foreach (var point in points)
-            {
-                var x = margin + (float)((point.X - minX) / (maxX - minX) * plotWidth);
-                var y = margin + (float)((maxY - point.Y) / (maxY - minY) * plotHeight);
-                var radius = (float)(scatterSeries.MarkerSize * dpiScale / 2);
-
-                canvas.DrawCircle(x, y, radius, paint);
-                canvas.DrawCircle(x, y, radius, strokePaint);
-            }
+            paint.SetStyle(Paint.Style.Fill);
+            _canvas.DrawOval(rectF, paint);
         }
-
-        private void DrawPieSeries(SKCanvas canvas, PieSeries pieSeries, int width, int height, float dpiScale)
+        
+        if (stroke.IsVisible() && thickness > 0)
         {
-            if (pieSeries.Slices.Count == 0) return;
-
-            var centerX = width / 2f;
-            var centerY = height / 2f;
-            var radius = Math.Min(width, height) * 0.3f;
-
-            var total = pieSeries.Slices.Sum(slice => slice.Value);
-            var startAngle = -90f; // Start at top
-
-            foreach (var slice in pieSeries.Slices)
-            {
-                var paint = new SKPaint
-                {
-                    Color = slice.Fill.ToSKColor(),
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill
-                };
-
-                var strokePaint = new SKPaint
-                {
-                    Color = SKColors.White,
-                    StrokeWidth = 2 * dpiScale,
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Stroke
-                };
-
-                var sweepAngle = (float)(slice.Value / total * 360);
-                
-                var rect = new SKRect(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
-                
-                using var path = new SKPath();
-                path.MoveTo(centerX, centerY);
-                path.ArcTo(rect, startAngle, sweepAngle, false);
-                path.Close();
-
-                canvas.DrawPath(path, paint);
-                canvas.DrawPath(path, strokePaint);
-
-                startAngle += sweepAngle;
-            }
+            paint.SetStyle(Paint.Style.Stroke);
+            paint.StrokeWidth = (float)(thickness * _dpiScale);
+            _canvas.DrawOval(rectF, paint);
         }
+    }
 
-        /// <summary>
-        /// Handles touch events for panning and zooming.
-        /// </summary>
-        /// <param name="view">The plot view.</param>
-        /// <param name="touchEventArgs">The touch event arguments.</param>
-        public void HandleTouchEvent(IPlotView view, OxyTouchEventArgs touchEventArgs)
+    public void DrawEllipses(IList<OxyRect> rectangles, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode = EdgeRenderingMode.Automatic)
+    {
+        foreach (var rect in rectangles)
         {
-            var controller = ActualController;
-            if (controller == null)
-                return;
-
-            // Handle different types of touch events
-            if (touchEventArgs.DeltaScale.X != 1.0 || touchEventArgs.DeltaScale.Y != 1.0)
-            {
-                // Pinch gesture
-                controller.HandleTouchDelta(view, touchEventArgs);
-            }
-            else if (touchEventArgs.DeltaTranslation.X != 0 || touchEventArgs.DeltaTranslation.Y != 0)
-            {
-                // Pan gesture
-                controller.HandleTouchDelta(view, touchEventArgs);
-            }
-            else
-            {
-                // Tap or touch down/up
-                controller.HandleTouchStarted(view, touchEventArgs);
-            }
+            DrawEllipse(rect, fill, stroke, thickness, edgeRenderingMode);
         }
+    }
 
-        /// <summary>
-        /// Called when the model is updated.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The event arguments.</param>
-        private void OnModelUpdated(object? sender, EventArgs e)
+    public void DrawLine(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    {
+        if (points.Count < 2) return;
+        
+        var paint = GetPaint(OxyColors.Transparent, stroke, thickness);
+        paint.SetStyle(Paint.Style.Stroke);
+        paint.StrokeWidth = (float)(thickness * _dpiScale);
+
+        var path = new Android.Graphics.Path();
+        path.MoveTo((float)points[0].X, (float)points[0].Y);
+        
+        for (int i = 1; i < points.Count; i++)
         {
-            InvalidatePlot();
+            path.LineTo((float)points[i].X, (float)points[i].Y);
+        }
+        
+        _canvas.DrawPath(path, paint);
+    }
+
+    public void DrawLineSegments(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    {
+        var paint = GetPaint(OxyColors.Transparent, stroke, thickness);
+        paint.SetStyle(Paint.Style.Stroke);
+        paint.StrokeWidth = (float)(thickness * _dpiScale);
+
+        for (int i = 0; i < points.Count - 1; i += 2)
+        {
+            _canvas.DrawLine(
+                (float)points[i].X, (float)points[i].Y,
+                (float)points[i + 1].X, (float)points[i + 1].Y,
+                paint);
+        }
+    }
+
+    public void DrawPolygon(IList<ScreenPoint> points, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    {
+        var paint = GetPaint(fill, stroke, thickness);
+        var path = new Android.Graphics.Path();
+        
+        if (points.Count > 0)
+        {
+            path.MoveTo((float)points[0].X, (float)points[0].Y);
+            for (int i = 1; i < points.Count; i++)
+            {
+                path.LineTo((float)points[i].X, (float)points[i].Y);
+            }
+            path.Close();
         }
 
-        /// <summary>
-        /// Gets the client area rectangle for the given dimensions.
-        /// </summary>
-        /// <param name="width">The width.</param>
-        /// <param name="height">The height.</param>
-        /// <returns>The client area rectangle.</returns>
-        public OxyRect GetClientArea(int width, int height) => new(0, 0, width, height);
+        if (fill.IsVisible())
+        {
+            paint.SetStyle(Paint.Style.Fill);
+            _canvas.DrawPath(path, paint);
+        }
+        
+        if (stroke.IsVisible() && thickness > 0)
+        {
+            paint.SetStyle(Paint.Style.Stroke);
+            paint.StrokeWidth = (float)(thickness * _dpiScale);
+            _canvas.DrawPath(path, paint);
+        }
+    }
+
+    public void DrawPolygons(IList<IList<ScreenPoint>> polygons, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    {
+        foreach (var polygon in polygons)
+        {
+            DrawPolygon(polygon, fill, stroke, thickness, edgeRenderingMode, dashArray, lineJoin);
+        }
+    }
+
+    public void DrawRectangle(OxyRect rect, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode = EdgeRenderingMode.Automatic)
+    {
+        var paint = GetPaint(fill, stroke, thickness);
+        var rectF = new RectF((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
+        
+        if (fill.IsVisible())
+        {
+            paint.SetStyle(Paint.Style.Fill);
+            _canvas.DrawRect(rectF, paint);
+        }
+        
+        if (stroke.IsVisible() && thickness > 0)
+        {
+            paint.SetStyle(Paint.Style.Stroke);
+            paint.StrokeWidth = (float)(thickness * _dpiScale);
+            _canvas.DrawRect(rectF, paint);
+        }
+    }
+
+    public void DrawRectangles(IList<OxyRect> rectangles, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode = EdgeRenderingMode.Automatic)
+    {
+        foreach (var rect in rectangles)
+        {
+            DrawRectangle(rect, fill, stroke, thickness, edgeRenderingMode);
+        }
+    }
+
+    public void DrawText(ScreenPoint p, string text, OxyColor fill, string fontFamily, double fontSize, double fontWeight, double rotate, HorizontalAlignment halign, VerticalAlignment valign, OxySize? maxSize)
+    {
+        // Handle null or empty text
+        if (string.IsNullOrEmpty(text))
+            return;
+            
+        var paint = GetPaint(fill, OxyColors.Transparent, 0);
+        paint.SetStyle(Paint.Style.Fill);
+        paint.TextSize = (float)(fontSize * _dpiScale);
+        
+        var bounds = new Rect();
+        paint.GetTextBounds(text, 0, text.Length, bounds);
+        
+        // Get font metrics for proper baseline positioning
+        var fontMetrics = paint.GetFontMetrics();
+        
+        var x = (float)p.X;
+        var y = (float)p.Y;
+        
+        // Detect Y-axis titles (rotated text on the left side) and force left alignment
+        // Use broader detection criteria to catch Y-axis titles reliably
+        bool isYAxisTitle = Math.Abs(rotate - (-90)) < 1 && p.X < 200; // Rotated -90 degrees and in left margin area
+        
+        // Detect X-axis titles (horizontal text in the bottom area, but not tick labels)
+        // Axis titles are typically longer than tick labels and positioned differently
+        bool isXAxisTitle = Math.Abs(rotate) < 1 && 
+                           p.Y > (_canvas.Height - 300) && 
+                           text.Length > 2 && // Axis titles are longer than "0", "1", "2", etc.
+                           !double.TryParse(text, out _); // Not a number (tick labels are usually numbers)
+        
+        // Force left alignment for Y-axis titles and adjust position for better spacing
+        var effectiveHalign = isYAxisTitle ? HorizontalAlignment.Left : halign;
+        
+        // For Y-axis titles, move them further left within the margin for better left alignment
+        if (isYAxisTitle)
+        {
+            x -= 40 * _dpiScale; // Move Y-axis titles further left for true left alignment
+        }
+        
+        // For X-axis titles, position them at the bottom of the PlotView
+        if (isXAxisTitle)
+        {
+            y = _canvas.Height - 50 * _dpiScale; // Position 50 pixels from bottom
+        }
+        
+        // Adjust for vertical alignment - Android draws from baseline, we need to adjust
+        switch (valign)
+        {
+            case VerticalAlignment.Top:
+                y -= fontMetrics.Ascent; // Move up by ascent to align top
+                break;
+            case VerticalAlignment.Middle:
+                y -= (fontMetrics.Ascent + fontMetrics.Descent) / 2f; // Center vertically
+                break;
+            case VerticalAlignment.Bottom:
+                y -= fontMetrics.Descent; // Move up by descent to align bottom
+                break;
+        }
+        
+        // Adjust for horizontal alignment
+        switch (effectiveHalign)
+        {
+            case HorizontalAlignment.Center:
+                x -= bounds.Width() / 2f;
+                break;
+            case HorizontalAlignment.Right:
+                x -= bounds.Width();
+                break;
+        }
+        
+        _canvas.DrawText(text, x, y, paint);
+    }
+
+    public OxySize MeasureText(string text, string fontFamily, double fontSize, double fontWeight)
+    {
+        // Handle null or empty text
+        if (string.IsNullOrEmpty(text))
+            return OxySize.Empty;
+            
+        var paint = new Paint();
+        paint.TextSize = (float)(fontSize * _dpiScale);
+        
+        var bounds = new Rect();
+        paint.GetTextBounds(text, 0, text.Length, bounds);
+        
+        // Get font metrics to match DrawText positioning
+        var fontMetrics = paint.GetFontMetrics();
+        
+        // Return size that includes proper height calculation with minimal padding
+        var width = bounds.Width() / _dpiScale;
+        var height = (fontMetrics.Bottom - fontMetrics.Top) / _dpiScale;
+        
+        // Add minimal padding - let explicit margins handle spacing
+        width += 4;  // Minimal padding for width
+        height += 4; // Minimal padding for height
+        
+        return new OxySize(width, height);
+    }
+
+    public void SetClip(OxyRect rect)
+    {
+        _canvas.ClipRect((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
+    }
+
+    public void ResetClip()
+    {
+        // Android canvas doesn't have a direct reset clip, would need to save/restore
+    }
+
+    public void DrawImage(OxyImage source, double srcX, double srcY, double srcWidth, double srcHeight, double destX, double destY, double destWidth, double destHeight, double opacity, bool interpolate)
+    {
+        // Image rendering can be implemented if needed
+    }
+
+    public void SetToolTip(string text)
+    {
+        // Tooltips handled by TrackerView
+    }
+
+    private Paint GetPaint(OxyColor fill, OxyColor stroke, double thickness)
+    {
+        var key = stroke.IsVisible() ? stroke : fill;
+        if (!_paintCache.TryGetValue(key, out var paint))
+        {
+            paint = new Paint();
+            paint.AntiAlias = true;
+            _paintCache[key] = paint;
+        }
+        
+        if (fill.IsVisible())
+            paint.Color = fill.ToColor();
+        else if (stroke.IsVisible())
+            paint.Color = stroke.ToColor();
+            
+        return paint;
+    }
+
+    public void PushClip(OxyRect clippingRect)
+    {
+        _canvas.Save();
+        SetClip(clippingRect);
+        ClipCount++;
+    }
+
+    public void PopClip()
+    {
+        _canvas.Restore();
+        ClipCount = Math.Max(0, ClipCount - 1);
+    }
+}
+
+/// <summary>
+/// Extension methods for OxyPlot integration with Android
+/// </summary>
+internal static class AndroidExtensions
+{
+    public static Color ToColor(this OxyColor oxyColor)
+    {
+        return new Color(oxyColor.R, oxyColor.G, oxyColor.B, oxyColor.A);
+    }
+
+    public static OxyKeyEventArgs ToKeyEventArgs(this KeyEvent e)
+    {
+        return new OxyKeyEventArgs
+        {
+            Key = e.KeyCode.ToOxyKey(),
+            ModifierKeys = e.MetaState.ToOxyModifierKeys()
+        };
+    }
+
+    public static OxyKey ToOxyKey(this Keycode keyCode)
+    {
+        return keyCode switch
+        {
+            Keycode.A => OxyKey.A,
+            Keycode.S => OxyKey.S,
+            Keycode.D => OxyKey.D,
+            Keycode.F => OxyKey.F,
+            Keycode.Plus => OxyKey.Add,
+            Keycode.Minus => OxyKey.Subtract,
+            Keycode.DpadUp => OxyKey.Up,
+            Keycode.DpadDown => OxyKey.Down,
+            Keycode.DpadLeft => OxyKey.Left,
+            Keycode.DpadRight => OxyKey.Right,
+            _ => OxyKey.Unknown
+        };
+    }
+
+    public static OxyModifierKeys ToOxyModifierKeys(this MetaKeyStates metaState)
+    {
+        var modifiers = OxyModifierKeys.None;
+        
+        if (metaState.HasFlag(MetaKeyStates.ShiftOn))
+            modifiers |= OxyModifierKeys.Shift;
+        if (metaState.HasFlag(MetaKeyStates.CtrlOn))
+            modifiers |= OxyModifierKeys.Control;
+        if (metaState.HasFlag(MetaKeyStates.AltOn))
+            modifiers |= OxyModifierKeys.Alt;
+            
+        return modifiers;
     }
 }

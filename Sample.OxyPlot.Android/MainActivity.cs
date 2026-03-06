@@ -1,6 +1,3 @@
-using Android.App;
-using Android.OS;
-using Android.Widget;
 using AndroidX.AppCompat.App;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -36,6 +33,9 @@ public class MainActivity : AppCompatActivity
                 LinearLayout.LayoutParams.MatchParent)
         };
         
+        // Set black background to better see the plot area
+        _mainLayout.SetBackgroundColor(global::Android.Graphics.Color.Black);
+        
         // Add top padding to push content below the action bar
         _mainLayout.SetPadding(0, GetActionBarHeight(), 0, 0);
 
@@ -45,15 +45,21 @@ public class MainActivity : AppCompatActivity
             LayoutParameters = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MatchParent,
                 LinearLayout.LayoutParams.WrapContent)
+            {
+                BottomMargin = 16 // Add margin below buttons
+            }
         };
 
         _buttonLayout = new LinearLayout(this)
         {
-            Orientation = Orientation.Horizontal,
+            Orientation = Orientation.Vertical, // Changed to vertical to stack rows
             LayoutParameters = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WrapContent,
+                LinearLayout.LayoutParams.MatchParent, // Changed to match parent width
                 LinearLayout.LayoutParams.WrapContent)
         };
+        
+        // Add padding to button layout
+        _buttonLayout.SetPadding(16, 16, 16, 16);
 
         // Create chart selection buttons
         CreateButtons();
@@ -64,6 +70,9 @@ public class MainActivity : AppCompatActivity
             LayoutParameters = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MatchParent,
                 0, 1.0f) // weight = 1 to fill remaining space
+            {
+                TopMargin = 8 // Add small margin above plot
+            }
         };
 
         // Add views to layouts
@@ -90,61 +99,108 @@ public class MainActivity : AppCompatActivity
 
     private void CreateButtons()
     {
-        var buttonParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WrapContent, 
-            LinearLayout.LayoutParams.WrapContent)
-        {
-            RightMargin = 10
-        };
-
         _lineChartButton = new Button(this)
         {
-            Text = "Line Chart",
-            LayoutParameters = buttonParams
+            Text = "LINE CHART"
         };
         _lineChartButton.Click += (s, e) => ShowLineChart();
 
         _barChartButton = new Button(this)
         {
-            Text = "Bar Chart",
-            LayoutParameters = buttonParams
+            Text = "BAR CHART"
         };
         _barChartButton.Click += (s, e) => ShowBarChart();
 
         _scatterPlotButton = new Button(this)
         {
-            Text = "Scatter Plot",
-            LayoutParameters = buttonParams
+            Text = "SCATTER PLOT"
         };
         _scatterPlotButton.Click += (s, e) => ShowScatterPlot();
 
         _pieChartButton = new Button(this)
         {
-            Text = "Pie Chart",
-            LayoutParameters = buttonParams
+            Text = "PIE CHART"
         };
         _pieChartButton.Click += (s, e) => ShowPieChart();
 
         _realTimeButton = new Button(this)
         {
-            Text = "Real-time",
-            LayoutParameters = buttonParams
+            Text = "REAL-TIME"
         };
         _realTimeButton.Click += (s, e) => ShowRealTimeChart();
 
         _multiSeriesButton = new Button(this)
         {
-            Text = "Multi-Series",
-            LayoutParameters = buttonParams
+            Text = "MULTI-SERIES"
         };
         _multiSeriesButton.Click += (s, e) => ShowMultiSeriesChart();
 
-        _buttonLayout?.AddView(_lineChartButton);
-        _buttonLayout?.AddView(_barChartButton);
-        _buttonLayout?.AddView(_scatterPlotButton);
-        _buttonLayout?.AddView(_pieChartButton);
-        _buttonLayout?.AddView(_realTimeButton);
-        _buttonLayout?.AddView(_multiSeriesButton);
+        // Create list of all buttons
+        var buttons = new[] { _lineChartButton, _barChartButton, _scatterPlotButton, 
+                             _pieChartButton, _realTimeButton, _multiSeriesButton };
+
+        // Add buttons to rows with wrapping
+        AddButtonsWithWrapping(buttons);
+    }
+
+    private void AddButtonsWithWrapping(Button[] buttons)
+    {
+        // Get screen width
+        var displayMetrics = Resources?.DisplayMetrics;
+        var screenWidthDp = displayMetrics?.WidthPixels ?? 1080;
+        var density = displayMetrics?.Density ?? 1.0f;
+        var screenWidthPixels = (int)(screenWidthDp / density);
+        
+        // Use a more optimized approach - determine buttons per row based on screen width
+        int maxButtonsPerRow;
+        if (screenWidthPixels < 700) // Phone portrait/landscape
+        {
+            maxButtonsPerRow = 3;
+        }
+        else // Tablet - fit all buttons in one row
+        {
+            maxButtonsPerRow = 6;
+        }
+
+        LinearLayout? currentRow = null;
+        int buttonsInCurrentRow = 0;
+
+        foreach (var button in buttons)
+        {
+            // Create new row if needed
+            if (currentRow == null || buttonsInCurrentRow >= maxButtonsPerRow)
+            {
+                currentRow = new LinearLayout(this)
+                {
+                    Orientation = Orientation.Horizontal,
+                    LayoutParameters = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MatchParent,
+                        LinearLayout.LayoutParams.WrapContent)
+                    {
+                        BottomMargin = 8 // Small margin between rows
+                    }
+                };
+                
+                // Center the buttons in each row
+                currentRow.SetGravity(global::Android.Views.GravityFlags.CenterHorizontal);
+                
+                _buttonLayout?.AddView(currentRow);
+                buttonsInCurrentRow = 0;
+            }
+
+            // Adjust button layout parameters to ensure they fit properly
+            var buttonParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WrapContent,
+                LinearLayout.LayoutParams.WrapContent)
+            {
+                RightMargin = 8,
+                LeftMargin = 8
+            };
+            
+            button.LayoutParameters = buttonParams;
+            currentRow.AddView(button);
+            buttonsInCurrentRow++;
+        }
     }
 
     private void ShowLineChart()
@@ -152,7 +208,7 @@ public class MainActivity : AppCompatActivity
         var model = new PlotModel 
         { 
             Title = "Line Chart Example",
-            Background = OxyColors.White
+            Background = OxyColors.LightGray
         };
 
         // Add axes
@@ -202,7 +258,7 @@ public class MainActivity : AppCompatActivity
         var model = new PlotModel 
         { 
             Title = "Bar Chart Example",
-            Background = OxyColors.White
+            Background = OxyColors.LightGray
         };
 
         var categoryAxis = new CategoryAxis 
@@ -245,7 +301,7 @@ public class MainActivity : AppCompatActivity
         var model = new PlotModel 
         { 
             Title = "Scatter Plot Example",
-            Background = OxyColors.White
+            Background = OxyColors.LightGray
         };
 
         model.Axes.Add(new LinearAxis 
@@ -286,7 +342,7 @@ public class MainActivity : AppCompatActivity
         var model = new PlotModel 
         { 
             Title = "Pie Chart Example",
-            Background = OxyColors.White
+            Background = OxyColors.LightGray
         };
 
         var pieSeries = new PieSeries
