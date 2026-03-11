@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '.vscode/**'
+      - '.github/**'
+      - 'README.md'
+  pull_request:
+    branches: [ main ] 
+    paths-ignore:
+      - '.vscode/**'
+      - '.github/**'
+      - 'README.md'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 10.0.x
+    - name: Install Android workload
+      run: dotnet workload install android
+    - name: Restore dependencies
+      run: dotnet restore Source/OxyPlot.DotNetAndroid/OxyPlot.DotNetAndroid.csproj
+    - name: Build
+      run: dotnet build Source/OxyPlot.DotNetAndroid/OxyPlot.DotNetAndroid.csproj --no-restore

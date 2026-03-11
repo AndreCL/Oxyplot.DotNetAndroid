@@ -1,0 +1,26 @@
+name: Nuget
+
+on:
+  release:
+    types: [published]
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v3
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 10.0.x
+    - name: Install Android workload
+      run: dotnet workload install android
+    - name: Pack the NuGet package
+      run: dotnet pack Source/OxyPlot.DotNetAndroid/OxyPlot.DotNetAndroid.csproj --configuration Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/AndreCL/Oxyplot.DotNetAndroid/releases/tag/${{ github.event.release.tag_name }}"
+    - name: Archive the NuGet package
+      uses: actions/upload-artifact@v4
+      with:
+        name: OxyPlot.DotNetAndroid
+        path: Source/OxyPlot.DotNetAndroid/bin/Release/OxyPlot.DotNetAndroid.${{ github.event.release.tag_name }}.nupkg
+    - name: Publish the NuGet package
+      run: dotnet nuget push **/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --no-symbols
