@@ -2,6 +2,9 @@
 
 High-performance charting library for .NET 10 Android applications using OxyPlot.
 
+![Nuget](https://github.com/AndreCL/Oxyplot.DotNetAndroid/workflows/Nuget/badge.svg)  
+![CodeQL](https://github.com/AndreCL/Oxyplot.DotNetAndroid/workflows/CodeQL/badge.svg)  
+![Build](https://github.com/AndreCL/Oxyplot.DotNetAndroid/workflows/Build/badge.svg)  <a href="https://www.nuget.org/packages/Oxyplot.DotNetAndroid" alt="Nuget Package"><img src="https://img.shields.io/nuget/v/Oxyplot.DotNetAndroid.svg?logo=nuget" title="Go To Nuget Package" alt="Nuget Package"/></a>
 [![.NET](https://img.shields.io/badge/.NET-10-blue.svg)](https://dotnet.microsoft.com/download)
 [![Android](https://img.shields.io/badge/Android-API%2021+-green.svg)](https://developer.android.com/about/versions/lollipop)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
