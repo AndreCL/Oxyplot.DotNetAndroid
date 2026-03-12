@@ -12,7 +12,6 @@ public class PlotView : View, IPlotView
 {
     private readonly PlotCore _plotCore;
     private readonly TouchHandler _touchHandler;
-    private readonly TrackerView? _trackerView;
     internal float _dpiScale = 1.0f;
     private readonly object _renderingLock = new object();
     private readonly object _invalidateLock = new object();
@@ -245,7 +244,7 @@ public class PlotView : View, IPlotView
     /// Draws the content of the control.
     /// </summary>
     /// <param name="canvas">The canvas to draw on.</param>
-    protected override void OnDraw(Canvas? canvas)
+    protected override void OnDraw(Canvas canvas)
     {
         base.OnDraw(canvas);
 
@@ -451,7 +450,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         }
     }
 
-    public void DrawLine(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    public void DrawLine(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[]? dashArray, LineJoin lineJoin)
     {
         if (points.Count < 2) return;
         
@@ -470,7 +469,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         _canvas.DrawPath(path, paint);
     }
 
-    public void DrawLineSegments(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    public void DrawLineSegments(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[]? dashArray, LineJoin lineJoin)
     {
         var paint = GetPaint(OxyColors.Transparent, stroke, thickness);
         paint.SetStyle(Paint.Style.Stroke);
@@ -485,7 +484,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         }
     }
 
-    public void DrawPolygon(IList<ScreenPoint> points, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    public void DrawPolygon(IList<ScreenPoint> points, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[]? dashArray, LineJoin lineJoin)
     {
         var paint = GetPaint(fill, stroke, thickness);
         var path = new Android.Graphics.Path();
@@ -514,7 +513,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         }
     }
 
-    public void DrawPolygons(IList<IList<ScreenPoint>> polygons, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[] dashArray, LineJoin lineJoin)
+    public void DrawPolygons(IList<IList<ScreenPoint>> polygons, OxyColor fill, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[]? dashArray, LineJoin lineJoin)
     {
         foreach (var polygon in polygons)
         {
@@ -549,7 +548,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         }
     }
 
-    public void DrawText(ScreenPoint p, string text, OxyColor fill, string fontFamily, double fontSize, double fontWeight, double rotate, HorizontalAlignment halign, VerticalAlignment valign, OxySize? maxSize)
+    public void DrawText(ScreenPoint p, string text, OxyColor fill, string? fontFamily, double fontSize, double fontWeight, double rotate, HorizontalAlignment halign, VerticalAlignment valign, OxySize? maxSize)
     {
         // Handle null or empty text
         if (string.IsNullOrEmpty(text))
@@ -622,7 +621,7 @@ internal class AndroidCanvasRenderContext : IRenderContext
         _canvas.DrawText(text, x, y, paint);
     }
 
-    public OxySize MeasureText(string text, string fontFamily, double fontSize, double fontWeight)
+    public OxySize MeasureText(string text, string? fontFamily, double fontSize, double fontWeight)
     {
         // Handle null or empty text
         if (string.IsNullOrEmpty(text))

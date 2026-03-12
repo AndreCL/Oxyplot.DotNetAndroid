@@ -12,7 +12,6 @@ internal class TouchHandler
     private bool _isPinching;
     private float _initialDistance;
     private ScreenPoint _initialCenter;
-    private double _initialZoom = 1.0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TouchHandler"/> class.
