@@ -64,7 +64,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandleTouchDown(MotionEvent e, PlotController controller)
+    private void HandleTouchDown(MotionEvent e, IPlotController controller)
     {
         var pointerId = e.GetPointerId(0);
         var screenPoint = new ScreenPoint(e.GetX(0), e.GetY(0));
@@ -88,7 +88,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandlePointerDown(MotionEvent e, PlotController controller)
+    private void HandlePointerDown(MotionEvent e, IPlotController controller)
     {
         if (e.PointerCount >= 2)
         {
@@ -117,7 +117,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandleTouchMove(MotionEvent e, PlotController controller)
+    private void HandleTouchMove(MotionEvent e, IPlotController controller)
     {
         if (_isPinching && e.PointerCount >= 2)
         {
@@ -134,7 +134,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandlePinchGesture(MotionEvent e, PlotController controller)
+    private void HandlePinchGesture(MotionEvent e, IPlotController controller)
     {
         var pointer1 = new ScreenPoint(e.GetX(0), e.GetY(0));
         var pointer2 = new ScreenPoint(e.GetX(1), e.GetY(1));
@@ -160,7 +160,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandlePanGesture(MotionEvent e, PlotController controller)
+    private void HandlePanGesture(MotionEvent e, IPlotController controller)
     {
         var pointerId = e.GetPointerId(0);
         var currentPoint = new ScreenPoint(e.GetX(0), e.GetY(0));
@@ -186,7 +186,7 @@ internal class TouchHandler
     /// </summary>
     /// <param name="e">The motion event.</param>
     /// <param name="controller">The plot controller.</param>
-    private void HandleTouchUp(MotionEvent e, PlotController controller)
+    private void HandleTouchUp(MotionEvent e, IPlotController controller)
     {
         var actionIndex = e.ActionIndex;
         var pointerId = e.GetPointerId(actionIndex);
@@ -219,7 +219,7 @@ internal class TouchHandler
     /// Handles the touch cancel event.
     /// </summary>
     /// <param name="controller">The plot controller.</param>
-    private void HandleTouchCancel(PlotController controller)
+    private void HandleTouchCancel(IPlotController controller)
     {
         _previousTouches.Clear();
         _isPinching = false;
