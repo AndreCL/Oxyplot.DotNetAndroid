@@ -109,6 +109,12 @@ public class PlotView : View, IPlotView
         return handled;
     }
 
+    protected override void OnDetachedFromWindow()
+    {
+        Model = null;
+        base.OnDetachedFromWindow();
+    }
+
     protected override void OnDraw(Canvas canvas)
     {
         base.OnDraw(canvas);
@@ -146,6 +152,10 @@ internal class AndroidCanvasRenderContext : IRenderContext
     private Canvas? _canvas;
     private readonly float _dpiScale;
     private readonly Paint _paint = new Paint { AntiAlias = true };
+    // Cached objects reused each frame to avoid repeated JNI allocations
+    private readonly Paint _measurePaint = new Paint { AntiAlias = true };
+    private readonly Android.Graphics.Path _path = new Android.Graphics.Path();
+    private readonly RectF _rectF = new RectF();
 
     public AndroidCanvasRenderContext(float dpiScale)
     {
@@ -185,11 +195,11 @@ internal class AndroidCanvasRenderContext : IRenderContext
     {
         if (_canvas == null || points.Count < 2) return;
         Configure(_paint, stroke, Paint.Style.Stroke, thickness);
-        var path = new Android.Graphics.Path();
-        path.MoveTo((float)points[0].X, (float)points[0].Y);
+        _path.Reset();
+        _path.MoveTo((float)points[0].X, (float)points[0].Y);
         for (int i = 1; i < points.Count; i++)
-            path.LineTo((float)points[i].X, (float)points[i].Y);
-        _canvas.DrawPath(path, _paint);
+            _path.LineTo((float)points[i].X, (float)points[i].Y);
+        _canvas.DrawPath(_path, _paint);
     }
 
     public void DrawLineSegments(IList<ScreenPoint> points, OxyColor stroke, double thickness, EdgeRenderingMode edgeRenderingMode, double[]? dashArray, LineJoin lineJoin)
@@ -282,11 +292,10 @@ internal class AndroidCanvasRenderContext : IRenderContext
     public OxySize MeasureText(string text, string? fontFamily, double fontSize, double fontWeight)
     {
         if (string.IsNullOrEmpty(text)) return OxySize.Empty;
-        using var paint = new Paint { AntiAlias = true };
-        paint.TextSize = (float)(fontSize * _dpiScale);
-        paint.FakeBoldText = fontWeight >= 700;
-        var fm = paint.GetFontMetrics();
-        return new OxySize(paint.MeasureText(text), fm!.Bottom - fm.Top);
+        _measurePaint.TextSize = (float)(fontSize * _dpiScale);
+        _measurePaint.FakeBoldText = fontWeight >= 700;
+        var fm = _measurePaint.GetFontMetrics();
+        return new OxySize(_measurePaint.MeasureText(text), fm!.Bottom - fm.Top);
     }
 
     public void PushClip(OxyRect clippingRect)
@@ -318,17 +327,20 @@ internal class AndroidCanvasRenderContext : IRenderContext
         paint.StrokeWidth = (float)(thickness * _dpiScale);
     }
 
-    private static RectF ToRectF(OxyRect rect) =>
-        new RectF((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
-
-    private static Android.Graphics.Path BuildPath(IList<ScreenPoint> points, bool close)
+    private RectF ToRectF(OxyRect rect)
     {
-        var path = new Android.Graphics.Path();
-        path.MoveTo((float)points[0].X, (float)points[0].Y);
+        _rectF.Set((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
+        return _rectF;
+    }
+
+    private Android.Graphics.Path BuildPath(IList<ScreenPoint> points, bool close)
+    {
+        _path.Reset();
+        _path.MoveTo((float)points[0].X, (float)points[0].Y);
         for (int i = 1; i < points.Count; i++)
-            path.LineTo((float)points[i].X, (float)points[i].Y);
-        if (close) path.Close();
-        return path;
+            _path.LineTo((float)points[i].X, (float)points[i].Y);
+        if (close) _path.Close();
+        return _path;
     }
 }
 
