@@ -21,7 +21,9 @@
 
   <ItemGroup>
     <PackageReference Include="OxyPlot.Core" Version="2.2.0" />
-    <PackageReference Include="OxyPlot.SkiaSharp" Version="2.2.0" />
+    <!-- Temporary: local fork of OxyPlot.SkiaSharp - delete ThirdParty folder and restore the PackageReference below once upstream is updated -->
+    <!--<PackageReference Include="OxyPlot.SkiaSharp" Version="2.2.0" />-->
+    <ProjectReference Include="..\..\ThirdParty\OxyPlot.SkiaSharp\OxyPlot.SkiaSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
