@@ -23,6 +23,9 @@
     <PackageReference Include="OxyPlot.Core" Version="2.2.0" />
     <!-- Temporary: local fork of OxyPlot.SkiaSharp - delete ThirdParty folder and restore the PackageReference below once upstream is updated -->
     <!--<PackageReference Include="OxyPlot.SkiaSharp" Version="2.2.0" />-->
+    <!-- Explicitly declare SkiaSharp deps so the published .nuspec reflects the versions we actually build against -->
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="3.119.2" />
     <ProjectReference Include="..\..\ThirdParty\OxyPlot.SkiaSharp\OxyPlot.SkiaSharp.csproj" />
   </ItemGroup>
 
